@@ -1,0 +1,197 @@
+Link de wookwi: https://wokwi.com/projects/425548805140933633
+Codigo
+from machine import Pin, PWM
+import neopixel
+import time
+
+# Configuración de pines según tus conexiones
+BUTTON1_PIN = 33  # Blanco
+BUTTON2_PIN = 32  # Azulito
+BUTTON3_PIN = 34  # El rojo
+BUTTON4_PIN = 35  # Amarisho
+BUZZER_PIN = 13   # Buzzer
+LED_PIN = 15      # La Neo
+
+LED_COUNT = 16    # cantidad de anillos de la neo
+
+
+button1 = Pin(BUTTON1_PIN, Pin.IN, Pin.PULL_UP)
+button2 = Pin(BUTTON2_PIN, Pin.IN, Pin.PULL_UP)
+
+button3 = Pin(BUTTON3_PIN, Pin.IN)
+button4 = Pin(BUTTON4_PIN, Pin.IN)
+
+# Configurar buzzer
+buzzer_pin = Pin(BUZZER_PIN, Pin.OUT)
+buzzer = None  
+
+# Configurar anillo LED
+np = neopixel.NeoPixel(Pin(LED_PIN), LED_COUNT)
+
+# Definir colores (formato RGB)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+PURPLE = (180, 0, 255)
+CYAN = (0, 255, 255)
+WHITE = (255, 255, 255)
+OFF = (0, 0, 0)
+
+# Definir notas musicales
+NOTES = {
+    "C4": 262,
+    "D4": 294,
+    "E4": 330,
+    "F4": 349,
+    "G4": 392,
+    "A4": 440,
+    "B4": 494,
+    "C5": 523
+}
+
+# Melodías para las diferentes canciones
+MELODIES = {
+    "1": ["C4", "E4", "G4", "C5", "G4", "E4", "C4"],
+    "2": ["E4", "G4", "A4", "G4", "E4", "D4", "E4"],
+    "3": ["G4", "A4", "B4", "C5", "B4", "A4", "G4"],
+    "4": ["C5", "B4", "A4", "G4", "F4", "E4", "D4", "C4"],
+    "12": ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
+    "13": ["C5", "A4", "F4", "D4", "F4", "A4", "C5"],
+    "14": ["E4", "D4", "C4", "D4", "E4", "E4", "E4"],
+    "23": ["G4", "E4", "G4", "B4", "G4", "B4", "D5"],
+    "24": ["C4", "C4", "G4", "G4", "A4", "A4", "G4"],
+    "34": ["F4", "F4", "E4", "E4", "D4", "D4", "C4"],
+    "1234": ["C4", "C4", "C4", "D4", "E4", "D4", "C4", "E4", "D4", "D4", "D4"]
+}
+
+# Colores para cada combinación
+COLORS = {
+    "1": RED,
+    "2": GREEN,
+    "3": BLUE,
+    "4": YELLOW,
+    "12": PURPLE,
+    "13": CYAN,
+    "14": WHITE,
+    "23": (255, 128, 0),  # Naranja
+    "24": (128, 255, 128),  # Verde claro
+    "34": (128, 128, 255),  # Azul claro
+    "1234": (255, 255, 255)  # Blanco brillante
+}
+
+def set_all_leds(color):
+    """Establece todos los LEDs al color especificado"""
+    for i in range(LED_COUNT):
+        np[i] = color
+    np.write()
+
+def led_chase(color, duration=50):
+    """Efecto de persecución en el anillo LED"""
+    for i in range(LED_COUNT):
+        np[i] = color
+        np.write()
+        time.sleep_ms(duration)
+        np[i] = OFF
+    np.write()
+
+def play_tone(freq, duration):
+    """Reproduce un tono en el buzzer"""
+    global buzzer
+    if freq > 0:
+        buzzer = PWM(buzzer_pin, freq=freq, duty=512)
+    time.sleep_ms(duration)
+    if buzzer:
+        buzzer.deinit()
+    buzzer_pin.value(0)
+
+def play_melody(melody_notes, speed=150):
+    """Reproduce una melodía y muestra efectos LED"""
+    if not melody_notes:
+        return
+    
+    # Obtener la combinación actual de botones
+    combo = get_button_combo()
+    color = COLORS.get(combo, WHITE)
+    
+    # Efectos iniciales
+    led_chase(color, 30)
+    
+    # Tocar melodía
+    for note in melody_notes:
+        freq = NOTES.get(note, 0)
+        
+        # Enciende LEDs mientras suena la nota
+        set_all_leds(color)
+        np.write()
+        
+        # Reproduce la nota
+        play_tone(freq, speed)
+        
+        # Apaga LEDs brevemente entre notas
+        set_all_leds(OFF)
+        np.write()
+        time.sleep_ms(50)
+
+def get_button_combo():
+    """Muestra la combinacion dependiendo de las combinaciones"""
+    combo = ""
+    # Para botones 1 y 2 con pull-up (0 = presionado)
+    if button1.value() == 0:
+        combo += "1"
+    if button2.value() == 0:
+        combo += "2"
+    
+    # Para botones 3 y 4 sin pull-up (conexión externa)
+    # IMPORTANTE: Ajusta esta lógica según cómo hayas conectado tus botones 3 y 4
+
+    if button3.value() == 1:  # 1 = presionado con pull-down
+        combo += "3"
+    if button4.value() == 1:  # 1 = presionado con pull-down
+        combo += "4"
+    
+    return combo
+
+# Estado para seguimiento de cambios
+last_combo = ""
+playing = False
+
+print("Iniciando la farra")
+print("Presione una combinacion de botones para activar la musica y cambiar el tipo de luz")
+
+# Efecto inicial de encendido
+for _ in range(2):
+    led_chase(RED, 30)
+    led_chase(GREEN, 30)
+    led_chase(BLUE, 30)
+
+set_all_leds(OFF)
+np.write()
+
+# Bucle principal
+while True:
+    # Obtener combinación actual
+    combo = get_button_combo()
+    
+    # Si hay botones presionados y la combinación cambió
+    if combo and combo != last_combo:
+        print(f"Combinación: {combo}")
+        
+        # Obtener melodía para esta combinación
+        melody_name = combo if combo in MELODIES else "1"  # Default
+        melody = MELODIES.get(melody_name, MELODIES["1"])
+        
+        # Reproducir melodía y mostrar efectos
+        play_melody(melody)
+        
+        # Actualizar última combinación
+        last_combo = combo
+    
+    # Si no hay botones presionados, limpiar el último estado
+    elif not combo and last_combo:
+        last_combo = ""
+        set_all_leds(OFF)
+        np.write()
+    
+    # Pequeña pausa para estabilidad
+    time.sleep_ms(50)
