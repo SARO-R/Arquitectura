@@ -1,1 +1,114 @@
-...
+Link del wookwi: https://wokwi.com/projects/424512124060077057
+Codigo
+from machine import Pin
+import time
+import neopixel
+
+# Configuración de pines
+DIR_PIN = Pin(5, Pin.OUT)    # Dirección del motor
+STEP_PIN = Pin(18, Pin.OUT)  # Pasos del motor
+
+# Botones
+BOTON_ENCENDIDO = Pin(14, Pin.IN, Pin.PULL_UP)  # Botón de encendido en D14
+BOTON_APAGADO = Pin(4, Pin.IN, Pin.PULL_UP)     # Botón de apagado en D4
+
+# Configuración de la rueda
+PASOS_POR_VUELTA = 200
+SILLAS = 16
+PASOS_POR_SILLA = PASOS_POR_VUELTA // SILLAS
+STEP_DELAY = 0.002
+CARGA_DESCARGA_TIEMPO = 3
+
+# Configuración de la tira Neopixel
+LED_PIN = 32  # Pin D32
+NUM_LEDS = 16  # Cantidad de LEDs en la tira
+np = neopixel.NeoPixel(Pin(LED_PIN), NUM_LEDS)
+
+# Estado del motor y sillas
+motor_encendido = False
+sillas_ocupadas = [False] * SILLAS  # False = Vacía (rojo), True = Ocupada (verde)
+
+def actualizar_leds():
+    """ Actualiza los LEDs según el estado de las sillas """
+    for i in range(SILLAS):
+        if sillas_ocupadas[i]:
+            np[i] = (0, 255, 0)  # Verde (ocupada)
+        else:
+            np[i] = (255, 0, 0)  # Rojo (vacía)
+    np.write()  # Enviar datos a los LEDs
+
+def mover_motor(pasos, velocidad):
+    """ Gira el motor la cantidad de pasos indicados """
+    for _ in range(pasos):
+        if not motor_encendido or BOTON_APAGADO.value() == 0:
+            return
+        STEP_PIN.value(1)
+        time.sleep(velocidad)
+        STEP_PIN.value(0)
+        time.sleep(velocidad)
+
+def cargar_pasajeros():
+    """ Simula la carga de pasajeros """
+    print("Cargando pasajeros...")
+    for silla in range(SILLAS):
+        if not motor_encendido or BOTON_APAGADO.value() == 0:
+            return
+        print(f"Parada en silla {silla + 1}")
+        mover_motor(PASOS_POR_SILLA, STEP_DELAY)
+        sillas_ocupadas[silla] = True  # La silla se llena
+        actualizar_leds()  # Actualizar LEDs
+        time.sleep(CARGA_DESCARGA_TIEMPO)
+
+def girar_rueda(vueltas):
+    """ Gira la rueda el número de vueltas especificado """
+    print("Iniciando giro de la rueda...")
+    DIR_PIN.value(1)
+    for i in range(vueltas):
+        if not motor_encendido or BOTON_APAGADO.value() == 0:
+            return
+        print(f"Vuelta {i + 1} de {vueltas}")
+        mover_motor(PASOS_POR_VUELTA, STEP_DELAY)
+
+def descargar_pasajeros():
+    """ Simula la descarga de pasajeros """
+    print("Descargando pasajeros...")
+    for silla in range(SILLAS):
+        if not motor_encendido or BOTON_APAGADO.value() == 0:
+            return
+        print(f"Parada en silla {silla + 1}")
+        mover_motor(PASOS_POR_SILLA, STEP_DELAY)
+        sillas_ocupadas[silla] = False  # La silla se vacía
+        actualizar_leds()  # Actualizar LEDs
+        time.sleep(CARGA_DESCARGA_TIEMPO)
+
+def encender_motor(pin):
+    """ Activa el motor cuando se presiona el botón de encendido """
+    global motor_encendido
+    motor_encendido = True
+    print("Motor ENCENDIDO")
+
+def apagar_motor(pin):
+    """ Desactiva el motor cuando se presiona el botón de apagado """
+    global motor_encendido
+    motor_encendido = False
+    print("Motor APAGADO")
+
+# Configurar interrupciones para los botones
+BOTON_ENCENDIDO.irq(trigger=Pin.IRQ_FALLING, handler=encender_motor)
+BOTON_APAGADO.irq(trigger=Pin.IRQ_FALLING, handler=apagar_motor)
+
+# Inicializar LEDs en rojo (vacías)
+actualizar_leds()
+
+# Mensaje de inicio
+print("Sistema listo. Presiona el botón para iniciar.")
+
+# Bucle principal
+while True:
+    if motor_encendido:
+        cargar_pasajeros()
+        girar_rueda(5)
+        descargar_pasajeros()
+        print("Ciclo completado. Esperando encendido...")
+
+    time.sleep(0.1)
