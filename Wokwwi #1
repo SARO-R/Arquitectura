@@ -1,1 +1,58 @@
-..
+Link wookwi: https://wokwi.com/projects/424511343505225729
+codigo 
+from machine import Pin, PWM
+import neopixel
+import utime
+
+# Configuración del servo en el pin 13
+servo = PWM(Pin(13), freq=50)  # PWM en el pin 13 con frecuencia de 50Hz
+
+# Configuración de la tira LED Neopixel en el pin 26 con 16 LEDs
+num_leds = 16
+np = neopixel.NeoPixel(Pin(26), num_leds)  # Usa GPIO26 para Neopixels
+
+def map_angle_to_duty(angle):
+    """
+    Convierte un ángulo de 0° a 180° en valores de duty para el servo.
+    """
+    return int((angle - 0) * (125 - 25) / (180 - 0) + 25)  # Duty cycle entre 25 y 125
+
+def move_servo_and_led():
+    """
+    Mueve el servo y enciende los LEDs progresivamente.
+    - Rojo: cuando el servo gira de 0° a 180°.
+    - Azul: cuando el servo regresa de 180° a 0°.
+    """
+    while True:
+        # Movimiento de 0° a 180° (Rojo)
+        for i in range(num_leds):
+            angle = int(i * (180 / num_leds))  # Calcula el ángulo en función del LED
+            duty = map_angle_to_duty(angle)
+            servo.duty(duty)  # Mueve el servo
+
+            # Apaga todos los LEDs y enciende progresivamente en rojo
+            np.fill((0, 0, 0))  
+            for j in range(i + 1):
+                np[j] = (255, 0, 0)  # Rojo
+            np.write()  # Actualiza la tira de LEDs
+
+            print(f"Ángulo: {angle}° - LED {i+1} en Rojo")
+            utime.sleep(0.2)  # Pequeña pausa
+
+        # Movimiento de 180° a 0° (Azul)
+        for i in range(num_leds - 1, -1, -1):
+            angle = int(i * (180 / num_leds))
+            duty = map_angle_to_duty(angle)
+            servo.duty(duty)  # Mueve el servo
+
+            # Apaga todos los LEDs y enciende progresivamente en azul
+            np.fill((0, 0, 0))  
+            for j in range(i + 1):
+                np[j] = (0, 0, 255)  # Azul
+            np.write()  # Actualiza la tira de LEDs
+
+            print(f"Ángulo: {angle}° - LED {i+1} en Azul")
+            utime.sleep(0.2)  # Pequeña pausa
+
+# Ejecutar el programa principal
+move_servo_and_led()
