@@ -1,1 +1,76 @@
-..
+Link: https://wokwi.com/projects/424808803548134401
+Codigo
+from machine import Pin, I2C, ADC
+import ssd1306
+import neopixel
+import time
+
+# Configuración del I2C para la pantalla OLED
+i2c = I2C(0, scl=Pin(22), sda=Pin(23))
+oled = ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+
+# Configuración del anillo de LEDs NeoPixel
+NUM_LEDS = 16
+np = neopixel.NeoPixel(Pin(5), NUM_LEDS)
+
+# Configuración del joystick
+VRX = ADC(Pin(34))
+VRY = ADC(Pin(35))
+VRX.atten(ADC.ATTN_11DB)
+VRY.atten(ADC.ATTN_11DB)
+
+# Splash Screen
+def splash_screen():
+    oled.fill(0)
+    oled.text("UNIVERSIDAD", 20, 10)
+    oled.text("MANUELA BELTRAN", 10, 25)
+    oled.text("Iniciando...", 30, 50)
+    oled.show()
+    time.sleep(2)
+
+splash_screen()
+
+# Variables iniciales
+white_led_index = 0
+r, g, b = 0, 0, 0
+DELAY_BASE = 0.1
+last_move_time = time.ticks_ms()  # Para controlar la velocidad de movimiento
+
+# Bucle principal
+while True:
+    # Leer valores del joystick
+    x_value = VRX.read()
+    y_value = VRY.read()
+    
+    # Normalizar valores a un rango de 0 a 255
+    r = max(0, min(255, int((y_value / 4095) * 255)))  # Más rojo hacia arriba
+    b = max(0, min(255, int(((4095 - y_value) / 4095) * 255)))  # Más azul hacia abajo
+    g = 0  # Verde no se usa
+
+    # Control de rotación del LED blanco
+    x_norm = (x_value - 2048) / 2048
+    if abs(x_norm) > 0.1:  # Solo mover si el joystick se inclina lo suficiente
+        current_time = time.ticks_ms()
+        if time.ticks_diff(current_time, last_move_time) > 200 / abs(x_norm):  # Control de velocidad
+            last_move_time = current_time
+            if x_norm > 0:
+                white_led_index = (white_led_index + 1) % NUM_LEDS  # Derecha
+            else:
+                white_led_index = (white_led_index - 1) % NUM_LEDS  # Izquierda
+
+    # Actualizar LEDs
+    for i in range(NUM_LEDS):
+        if i == white_led_index:
+            np[i] = (255, 255, 255)  # LED blanco real
+        else:
+            np[i] = (r, g, b)  # Color controlado por el joystick
+    np.write()
+
+    # Actualizar pantalla OLED
+    oled.fill(0)
+    oled.text(f"R: {r} G: {g} B: {b}", 10, 10)
+    oled.text(f"Rot: {'CW' if x_norm > 0 else 'CCW'}", 10, 30)
+    oled.text(f"Vel: {round(abs(x_norm), 2)}", 10, 50)
+    oled.show()
+
+    time.sleep(0.1)  # Pequeña pausa para estabilidad
